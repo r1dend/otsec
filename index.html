@@ -1,0 +1,532 @@
+f<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>OTSEC</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #08080a;
+    --surface: #121215;
+    --surface-2: #1b1b20;
+    --line: rgba(255,255,255,.07);
+    --text: #f4f4f6;
+    --muted: #85858f;
+    --acc: #c8ff2e;
+    --acc-ink: #0b0d02;
+    --display: "Unbounded", system-ui, sans-serif;
+    --body: "Manrope", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 500 15px/1.35 var(--body); }
+  body { padding: 0 16px 120px; overflow-x: hidden; }
+  body.lock { overflow: hidden; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+  img { display: block; }
+  svg { display: block; }
+
+  /* фоновое свечение */
+  .glow { position: fixed; inset: -20% -40% auto; height: 420px; pointer-events: none; z-index: 0;
+    background: radial-gradient(closest-side, rgba(200,255,46,.16), transparent 70%); filter: blur(10px); }
+  main { position: relative; z-index: 1; }
+
+  /* шапка */
+  header { display: flex; align-items: flex-end; justify-content: space-between; padding: 22px 0 16px; }
+  .logo { font: 900 34px/0.9 var(--display); letter-spacing: -.02em; }
+  .logo span { color: var(--acc); }
+  .tagline { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--muted); margin-top: 8px; }
+  .avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--surface-2); display: grid; place-items: center;
+    font: 700 14px var(--display); color: var(--acc); border: 1px solid var(--line); overflow: hidden; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* поиск */
+  .search { position: sticky; top: 0; z-index: 10; padding: 8px 0 12px; margin: 0 -16px; padding-inline: 16px;
+    background: linear-gradient(var(--bg) 70%, transparent); }
+  .search label { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 16px; padding: 0 14px; transition: border-color .2s; }
+  .search label:focus-within { border-color: rgba(200,255,46,.5); }
+  .search svg { width: 18px; height: 18px; fill: none; stroke: var(--muted); stroke-width: 2; flex: none; }
+  .search input { flex: 1; min-width: 0; height: 46px; border: 0; outline: none; background: none; color: var(--text);
+    font: 500 16px var(--body); }
+  .search input::placeholder { color: var(--muted); }
+  .search input::-webkit-search-cancel-button { display: none; }
+  .clear { display: none; color: var(--muted); font-size: 20px; line-height: 1; }
+  .search.has-q .clear { display: block; }
+
+  /* табы */
+  .tabs { display: flex; gap: 6px; margin: 2px 0 20px; }
+  .tab { padding: 9px 16px; border-radius: 999px; font: 600 13px var(--body); color: var(--muted);
+    border: 1px solid var(--line); transition: all .2s; }
+  .tab.active { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }
+
+  .section-title { display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 12px; }
+  .section-title h2 { margin: 0; font: 700 18px var(--display); letter-spacing: -.01em; }
+  .section-title span { color: var(--muted); font-size: 12px; }
+
+  /* карусель топа */
+  .ph { background: radial-gradient(circle at 30% 25%, rgba(200,255,46,.35), transparent 55%), linear-gradient(135deg, #23232a, #111114) !important; }
+  .ph::before { content: "O."; position: absolute; inset: 0; display: grid; place-items: center; font: 900 18px var(--display); color: rgba(255,255,255,.25); }
+  .card .ph::before { font-size: 44px; }
+  .ph img { position: relative; }
+  .hero { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: 16px; margin: 0 -16px 26px; padding: 0 16px;
+    scrollbar-width: none; }
+  .hero::-webkit-scrollbar { display: none; }
+  .card { flex: none; width: 158px; scroll-snap-align: start; text-align: left; }
+  .card .art { position: relative; width: 158px; height: 158px; border-radius: 20px; overflow: hidden; background: var(--surface-2); }
+  .card .art img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s; }
+  .card:active .art img { transform: scale(.96); }
+  .card .rank { position: absolute; left: 10px; bottom: 6px; font: 900 44px/1 var(--display); color: transparent;
+    -webkit-text-stroke: 1.5px rgba(255,255,255,.9); text-shadow: 0 2px 12px rgba(0,0,0,.4); }
+  .card .shade { position: absolute; inset: 0; background: linear-gradient(transparent 50%, rgba(0,0,0,.55)); }
+  .card .play-badge { position: absolute; right: 10px; bottom: 10px; width: 36px; height: 36px; border-radius: 50%;
+    background: var(--acc); display: grid; place-items: center; transform: scale(.85); opacity: .95; }
+  .card .play-badge svg { width: 16px; height: 16px; fill: var(--acc-ink); }
+  .card .t { margin-top: 10px; font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .a { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .card.playing .t { color: var(--acc); }
+
+  /* список */
+  .list { display: flex; flex-direction: column; gap: 2px; }
+  .track { display: grid; grid-template-columns: 26px 52px 1fr auto auto; align-items: center; gap: 12px;
+    padding: 8px 8px 8px 4px; margin: 0 -8px 0 -4px; border-radius: 14px; transition: background .15s; cursor: pointer; }
+  .track:active { background: var(--surface); }
+  .track .num { font: 700 13px var(--display); color: var(--muted); text-align: center; }
+  .track .cov { position: relative; width: 52px; height: 52px; border-radius: 12px; overflow: hidden; background: var(--surface-2); }
+  .track .cov img { width: 100%; height: 100%; object-fit: cover; }
+  .track .meta { min-width: 0; }
+  .track .title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .track .artist { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .track .dur { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .track.playing { background: linear-gradient(90deg, rgba(200,255,46,.08), transparent); }
+  .track.playing .title { color: var(--acc); }
+  .like { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; }
+  .like svg { width: 20px; height: 20px; fill: none; stroke: var(--muted); stroke-width: 1.8; transition: transform .2s; }
+  .like.on svg { fill: var(--acc); stroke: var(--acc); }
+  .like:active svg { transform: scale(.8); }
+
+  /* эквалайзер на играющем треке */
+  .eq { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: flex-end; justify-content: center;
+    gap: 3px; padding-bottom: 15px; }
+  .eq i { width: 4px; background: var(--acc); border-radius: 2px; animation: eq .9s ease-in-out infinite; }
+  .eq i:nth-child(2) { animation-delay: -.3s; } .eq i:nth-child(3) { animation-delay: -.6s; }
+  @keyframes eq { 0%,100% { height: 5px; } 50% { height: 22px; } }
+  body.paused .eq i { animation-play-state: paused; }
+
+  .msg { color: var(--muted); text-align: center; padding: 48px 0; }
+  .msg b { display: block; font: 700 18px var(--display); color: var(--text); margin-bottom: 6px; }
+
+  /* скелетон загрузки */
+  .sk { background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 50%, var(--surface) 100%);
+    background-size: 200% 100%; animation: sk 1.2s linear infinite; border-radius: 12px; }
+  @keyframes sk { to { background-position: -200% 0; } }
+
+  /* мини-плеер */
+  .mini { position: fixed; left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 20;
+    display: none; align-items: center; gap: 12px; padding: 8px 8px 8px 8px; border-radius: 20px; overflow: hidden;
+    background: rgba(24,24,28,.82); backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4);
+    border: 1px solid var(--line); box-shadow: 0 12px 40px rgba(0,0,0,.5); cursor: pointer; }
+  .mini.show { display: flex; animation: up .35s cubic-bezier(.2,.9,.3,1.2); }
+  @keyframes up { from { transform: translateY(120%); } }
+  .mini img { width: 46px; height: 46px; border-radius: 12px; object-fit: cover; background: var(--surface-2); flex: none; }
+  .mini .meta { flex: 1; min-width: 0; }
+  .mini .title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mini .artist { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .mini .bar { position: absolute; left: 0; bottom: 0; height: 2px; width: 0; background: var(--acc); }
+  .ib { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; flex: none; }
+  .ib svg { width: 22px; height: 22px; fill: currentColor; }
+  .ib.acc { background: var(--acc); color: var(--acc-ink); }
+
+  /* полноэкранный плеер */
+  .full { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; padding: 14px 24px calc(28px + env(safe-area-inset-bottom));
+    background: var(--bg); transform: translateY(100%); transition: transform .45s cubic-bezier(.2,.9,.25,1); overflow: hidden; }
+  .full.open { transform: none; }
+  .full-bg { position: absolute; inset: -60px; background-size: cover; background-position: center; filter: blur(60px) saturate(1.6) brightness(.45);
+    transform: scale(1.2); z-index: -1; transition: background-image .5s; }
+  .full::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(transparent 30%, rgba(8,8,10,.92) 80%); }
+  .full-top { display: flex; align-items: center; justify-content: space-between; }
+  .full-top .lbl { font: 700 11px var(--display); letter-spacing: .25em; text-transform: uppercase; color: rgba(255,255,255,.7); }
+  .full-top .lbl span { color: var(--acc); }
+  .full-cover-wrap { flex: 1; display: grid; place-items: center; padding: 24px 0; min-height: 0; }
+  .full-cover { width: min(100%, 360px); aspect-ratio: 1; border-radius: 28px; object-fit: cover; background: var(--surface-2);
+    box-shadow: 0 30px 80px rgba(0,0,0,.6); transition: transform .4s; }
+  body.paused .full-cover { transform: scale(.9); }
+  .full-meta { display: flex; align-items: center; gap: 12px; }
+  .full-meta .m { flex: 1; min-width: 0; }
+  .full-title { font: 700 22px/1.2 var(--display); letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .full-artist { color: rgba(255,255,255,.65); margin-top: 6px; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .full .like svg { width: 26px; height: 26px; stroke: rgba(255,255,255,.8); }
+  .full .like { width: 44px; height: 44px; }
+
+  .seek { margin-top: 22px; }
+  .seek input { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 4px; outline: none; margin: 0;
+    background: linear-gradient(var(--acc), var(--acc)) 0 / var(--p, 0%) 100% no-repeat, rgba(255,255,255,.18); }
+  .seek input::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 4px rgba(200,255,46,.25); }
+  .seek input::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: #fff; }
+  .times { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: rgba(255,255,255,.55); font-variant-numeric: tabular-nums; }
+
+  .ctrls { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; }
+  .ctrls .ib { width: 52px; height: 52px; color: #fff; }
+  .ctrls .ib svg { width: 30px; height: 30px; }
+  .ctrls .ib.sm svg { width: 22px; height: 22px; }
+  .ctrls .ib.sm { color: rgba(255,255,255,.5); position: relative; }
+  .ctrls .ib.sm.on { color: var(--acc); }
+  .ctrls .ib.sm.on::after { content: ""; position: absolute; bottom: 6px; width: 4px; height: 4px; border-radius: 50%; background: var(--acc); }
+  .ctrls .big { width: 76px; height: 76px; background: var(--acc); color: var(--acc-ink); box-shadow: 0 10px 36px rgba(200,255,46,.35); }
+  .ctrls .big svg { width: 34px; height: 34px; }
+  .ctrls .ib:active { transform: scale(.92); }
+</style>
+</head>
+<body class="paused">
+<div class="glow"></div>
+<main>
+  <header>
+    <div>
+      <div class="logo">OTSEC<span>.</span></div>
+      <div class="tagline">музыка без лишнего</div>
+    </div>
+    <div class="avatar" id="avatar">♪</div>
+  </header>
+
+  <div class="search" id="searchBox">
+    <label>
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5" stroke-linecap="round"/></svg>
+      <input id="q" type="search" placeholder="Трек, артист, жанр" autocomplete="off">
+      <button class="clear" id="clear" aria-label="Очистить">×</button>
+    </label>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="trending">Чарт</button>
+    <button class="tab" data-tab="liked">Моё</button>
+  </div>
+
+  <section id="heroSec">
+    <div class="section-title"><h2>Топ недели</h2><span>листай →</span></div>
+    <div class="hero" id="hero"></div>
+  </section>
+
+  <div class="section-title"><h2 id="heading">Сейчас качает</h2><span id="count"></span></div>
+  <div id="list" class="list"></div>
+</main>
+
+<div class="mini" id="mini">
+  <img id="mCover" alt="">
+  <div class="meta"><div class="title" id="mTitle"></div><div class="artist" id="mArtist"></div></div>
+  <button class="ib" id="mPrev" aria-label="Назад"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
+  <button class="ib acc" id="mPlay" aria-label="Играть"><svg viewBox="0 0 24 24" class="pp"></svg></button>
+  <button class="ib" id="mNext" aria-label="Дальше"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+  <div class="bar" id="mBar"></div>
+</div>
+
+<div class="full" id="full">
+  <div class="full-bg" id="fBg"></div>
+  <div class="full-top">
+    <button class="ib" id="fClose" aria-label="Свернуть"><svg viewBox="0 0 24 24"><path d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg></button>
+    <div class="lbl">OTSEC<span>.</span> PLAYER</div>
+    <div style="width:40px"></div>
+  </div>
+  <div class="full-cover-wrap"><img class="full-cover" id="fCover" alt=""></div>
+  <div class="full-meta">
+    <div class="m"><div class="full-title" id="fTitle"></div><div class="full-artist" id="fArtist"></div></div>
+    <button class="like" id="fLike" aria-label="В избранное"></button>
+  </div>
+  <div class="seek">
+    <input type="range" id="fSeek" min="0" max="1000" value="0">
+    <div class="times"><span id="fCur">0:00</span><span id="fTotal">0:00</span></div>
+  </div>
+  <div class="ctrls">
+    <button class="ib sm" id="fShuffle" aria-label="Перемешать"><svg viewBox="0 0 24 24"><path d="M10.6 9.2 5.4 4 4 5.4l5.2 5.2zM14.5 4l2 2L4 18.6 5.4 20 18 7.5l2 2V4zm.3 9.4-1.4 1.4 3.1 3.2-2 2H20v-5.5l-2 2z"/></svg></button>
+    <button class="ib" id="fPrev" aria-label="Назад"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
+    <button class="ib big" id="fPlay" aria-label="Играть"><svg viewBox="0 0 24 24" class="pp"></svg></button>
+    <button class="ib" id="fNext" aria-label="Дальше"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+    <button class="ib sm" id="fRepeat" aria-label="Повтор"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg></button>
+  </div>
+</div>
+
+<audio id="audio" preload="none"></audio>
+
+<script>
+const tg = window.Telegram && Telegram.WebApp;
+if (tg && tg.initData !== undefined) {
+  tg.ready(); tg.expand();
+  try { tg.setHeaderColor('#08080a'); tg.setBackgroundColor('#08080a'); } catch (e) {}
+  try { tg.disableVerticalSwipes(); } catch (e) {}
+}
+const haptic = (k = 'light') => { try { tg.HapticFeedback.impactOccurred(k); } catch (e) {} };
+
+const APP = 'otsec';
+const $ = id => document.getElementById(id);
+const audio = $('audio');
+
+// аватар пользователя Telegram
+(() => {
+  const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+  if (!u) return;
+  if (u.photo_url) $('avatar').innerHTML = `<img src="${u.photo_url}" alt="">`;
+  else $('avatar').textContent = (u.first_name || '♪')[0].toUpperCase();
+})();
+
+const ICON = {
+  play: '<path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/>',
+  pause: '<rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/>',
+  heart: '<svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-9.2-9.4C1.6 7.6 4 4.5 7.3 4.5c2 0 3.6 1.1 4.7 2.7 1.1-1.6 2.7-2.7 4.7-2.7 3.3 0 5.7 3.1 4.5 6.6-1.7 4.8-9.2 9.4-9.2 9.4z" stroke-linejoin="round"/></svg>',
+};
+
+let host = null, queue = [], index = -1, tab = 'trending', shuffle = false, trendingCache = null;
+
+// ---------- избранное ----------
+function loadLiked() { try { return JSON.parse(localStorage.getItem('otsec_liked') || '[]'); } catch (e) { return []; } }
+function saveLiked() { try { localStorage.setItem('otsec_liked', JSON.stringify(liked)); } catch (e) {} }
+let liked = loadLiked();
+const isLiked = id => liked.some(t => t.id === id);
+function toggleLike(t) {
+  if (!t) return;
+  liked = isLiked(t.id) ? liked.filter(x => x.id !== t.id) : [t, ...liked];
+  saveLiked(); haptic('medium'); syncLikes();
+}
+
+// ---------- Audius API ----------
+async function getHost() {
+  if (host) return host;
+  const j = await (await fetch('https://api.audius.co')).json();
+  host = j.data[Math.floor(Math.random() * j.data.length)];
+  return host;
+}
+const simplify = t => ({
+  id: t.id, title: t.title, artist: t.user ? t.user.name : '',
+  cover: t.artwork ? (t.artwork['480x480'] || t.artwork['150x150'] || '') : '',
+  duration: t.duration || 0,
+});
+async function api(path) {
+  const h = await getHost();
+  const r = await fetch(`${h}/v1${path}${path.includes('?') ? '&' : '?'}app_name=${APP}`);
+  if (!r.ok) throw new Error(r.status);
+  const j = await r.json();
+  return (j.data || []).filter(t => t.is_streamable !== false).map(simplify);
+}
+const streamUrl = id => `${host}/v1/tracks/${id}/stream?app_name=${APP}`;
+
+// ---------- отрисовка ----------
+const fmt = s => {
+  s = Math.floor(s || 0);
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = String(s % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
+};
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const nowId = () => queue[index] && queue[index].id;
+const EQ = '<div class="eq"><i></i><i></i><i></i></div>';
+
+let shown = [], heroItems = [];
+
+function renderHero(tracks) {
+  heroItems = tracks;
+  $('heroSec').style.display = tracks.length ? '' : 'none';
+  $('hero').innerHTML = tracks.map((t, i) => `
+    <button class="card ${t.id === nowId() ? 'playing' : ''}" data-h="${i}">
+      <div class="art ph">
+        ${t.cover ? `<img src="${esc(t.cover)}" alt="" onerror="this.remove()">` : ''}
+        <div class="shade"></div>
+        <div class="rank">${i + 1}</div>
+        <div class="play-badge"><svg viewBox="0 0 24 24">${ICON.play}</svg></div>
+      </div>
+      <div class="t">${esc(t.title)}</div><div class="a">${esc(t.artist)}</div>
+    </button>`).join('');
+}
+
+function render(tracks, empty, offset = 0) {
+  shown = tracks;
+  $('count').textContent = tracks.length ? `${tracks.length} треков` : '';
+  if (!tracks.length) { $('list').innerHTML = `<div class="msg">${empty}</div>`; return; }
+  const pid = nowId();
+  $('list').innerHTML = tracks.map((t, i) => `
+    <div class="track ${t.id === pid ? 'playing' : ''}" data-i="${i}">
+      <div class="num">${String(i + 1 + offset).padStart(2, '0')}</div>
+      <div class="cov ph">${t.cover ? `<img src="${esc(t.cover)}" loading="lazy" alt="" onerror="this.remove()">` : ''}${t.id === pid ? EQ : ''}</div>
+      <div class="meta"><div class="title">${esc(t.title)}</div><div class="artist">${esc(t.artist)}</div></div>
+      <span class="dur">${fmt(t.duration)}</span>
+      <button class="like ${isLiked(t.id) ? 'on' : ''}" data-like="${i}" aria-label="В избранное">${ICON.heart}</button>
+    </div>`).join('');
+}
+
+function skeleton() {
+  $('list').innerHTML = Array.from({ length: 7 }, () =>
+    `<div class="track"><div></div><div class="sk" style="width:52px;height:52px"></div>
+     <div><div class="sk" style="height:12px;width:70%"></div><div class="sk" style="height:10px;width:40%;margin-top:8px"></div></div><div></div><div></div></div>`).join('');
+}
+
+function syncLikes() {
+  document.querySelectorAll('[data-like]').forEach(b => b.classList.toggle('on', isLiked(shown[+b.dataset.like].id)));
+  $('fLike').classList.toggle('on', !!queue[index] && isLiked(queue[index].id));
+}
+
+$('list').addEventListener('click', e => {
+  const lb = e.target.closest('[data-like]');
+  if (lb) {
+    toggleLike(shown[+lb.dataset.like]);
+    if (tab === 'liked' && !$('q').value) showLiked();
+    return;
+  }
+  const row = e.target.closest('.track[data-i]');
+  if (!row) return;
+  const i = +row.dataset.i;
+  if (shown[i].id === nowId()) { openFull(); return; }
+  queue = shown.slice(); playAt(i);
+});
+$('hero').addEventListener('click', e => {
+  const c = e.target.closest('[data-h]');
+  if (!c) return;
+  const i = +c.dataset.h;
+  if (heroItems[i].id === nowId()) { openFull(); return; }
+  queue = heroItems.concat(shown); playAt(i);
+});
+
+// ---------- разделы ----------
+async function showTrending() {
+  $('heading').textContent = 'Сейчас качает';
+  if (!trendingCache) {
+    renderHero([]); skeleton();
+    try { trendingCache = await api('/tracks/trending?limit=50'); }
+    catch (e) { $('list').innerHTML = '<div class="msg"><b>Нет связи</b>Проверь интернет и открой снова</div>'; return; }
+  }
+  if (tab !== 'trending' || $('q').value.trim()) return;
+  renderHero(trendingCache.slice(0, 8));
+  render(trendingCache.slice(8), 'Пусто', 8);
+}
+function showLiked() {
+  renderHero([]);
+  $('heading').textContent = 'Моя музыка';
+  render(liked, '<b>Здесь пока тихо</b>Жми ♡ на треках — они появятся тут');
+}
+let searchTimer;
+$('q').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  const q = $('q').value.trim();
+  $('searchBox').classList.toggle('has-q', !!q);
+  if (!q) { tab === 'liked' ? showLiked() : showTrending(); return; }
+  searchTimer = setTimeout(async () => {
+    renderHero([]);
+    $('heading').textContent = 'Результаты';
+    skeleton();
+    try {
+      const res = await api(`/tracks/search?query=${encodeURIComponent(q)}`);
+      if ($('q').value.trim() === q) render(res, `<b>Ничего не нашли</b>Попробуй по-другому`);
+    } catch (e) { $('list').innerHTML = '<div class="msg"><b>Ошибка поиска</b>Попробуй ещё раз</div>'; }
+  }, 400);
+});
+$('clear').onclick = () => { $('q').value = ''; $('q').dispatchEvent(new Event('input')); };
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === b));
+  tab = b.dataset.tab; $('q').value = ''; $('searchBox').classList.remove('has-q');
+  haptic(); tab === 'liked' ? showLiked() : showTrending();
+}));
+
+// ---------- плеер ----------
+function setPP(paused) {
+  document.querySelectorAll('.pp').forEach(s => s.innerHTML = paused ? ICON.play : ICON.pause);
+  document.body.classList.toggle('paused', paused);
+}
+setPP(true);
+$('fLike').innerHTML = ICON.heart;
+
+function playAt(i) {
+  if (i < 0 || i >= queue.length) return;
+  index = i;
+  const t = queue[i];
+  audio.src = streamUrl(t.id);
+  audio.play().catch(() => {});
+  $('mini').classList.add('show');
+  $('mTitle').textContent = $('fTitle').textContent = t.title;
+  $('mArtist').textContent = $('fArtist').textContent = t.artist;
+  $('mCover').src = $('fCover').src = t.cover || '';
+  $('fBg').style.backgroundImage = t.cover ? `url("${t.cover}")` : 'none';
+  $('fLike').classList.toggle('on', isLiked(t.id));
+  // подсветить играющий трек без полной перерисовки
+  document.querySelectorAll('.track[data-i]').forEach(r => {
+    const on = shown[+r.dataset.i].id === t.id;
+    r.classList.toggle('playing', on);
+    const cov = r.querySelector('.cov'), eq = cov.querySelector('.eq');
+    if (on && !eq) cov.insertAdjacentHTML('beforeend', EQ);
+    if (!on && eq) eq.remove();
+  });
+  document.querySelectorAll('.card').forEach(c => c.classList.toggle('playing', heroItems[+c.dataset.h].id === t.id));
+  haptic();
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: t.title, artist: t.artist, album: 'OTSEC', artwork: t.cover ? [{ src: t.cover, sizes: '480x480' }] : [],
+    });
+  }
+}
+const toggle = () => { if (!audio.src) return; audio.paused ? audio.play() : audio.pause(); haptic(); };
+const next = () => {
+  if (!queue.length) return;
+  if (shuffle && queue.length > 1) { let j; do { j = Math.floor(Math.random() * queue.length); } while (j === index); return playAt(j); }
+  playAt(index + 1 < queue.length ? index + 1 : 0);
+};
+const prev = () => audio.currentTime > 3 ? (audio.currentTime = 0) : playAt(Math.max(0, index - 1));
+
+const stop = fn => e => { e.stopPropagation(); fn(); };
+$('mPlay').onclick = stop(toggle);
+$('mNext').onclick = stop(next);
+$('mPrev').onclick = stop(prev);
+$('fPlay').onclick = toggle;
+$('fNext').onclick = next;
+$('fPrev').onclick = prev;
+$('fLike').onclick = () => { toggleLike(queue[index]); if (tab === 'liked' && !$('q').value) showLiked(); };
+$('fShuffle').onclick = () => { shuffle = !shuffle; $('fShuffle').classList.toggle('on', shuffle); haptic(); };
+$('fRepeat').onclick = () => { audio.loop = !audio.loop; $('fRepeat').classList.toggle('on', audio.loop); haptic(); };
+
+// полноэкранный плеер
+function openFull() {
+  $('full').classList.add('open'); document.body.classList.add('lock'); haptic('medium');
+  try { tg.BackButton.show(); } catch (e) {}
+}
+function closeFull() {
+  $('full').classList.remove('open'); document.body.classList.remove('lock');
+  try { tg.BackButton.hide(); } catch (e) {}
+}
+$('mini').onclick = openFull;
+$('fClose').onclick = closeFull;
+try { tg.BackButton.onClick(closeFull); } catch (e) {}
+// свайп вниз закрывает плеер
+let y0 = null;
+$('full').addEventListener('touchstart', e => { if (!e.target.closest('input')) y0 = e.touches[0].clientY; }, { passive: true });
+$('full').addEventListener('touchend', e => { if (y0 !== null && e.changedTouches[0].clientY - y0 > 90) closeFull(); y0 = null; });
+
+audio.addEventListener('play', () => setPP(false));
+audio.addEventListener('pause', () => setPP(true));
+audio.addEventListener('ended', next);
+audio.addEventListener('error', () => { if (index >= 0 && audio.src) setTimeout(next, 600); });
+
+let seeking = false;
+audio.addEventListener('timeupdate', () => {
+  const d = audio.duration, p = d ? audio.currentTime / d : 0;
+  $('mBar').style.width = p * 100 + '%';
+  $('fCur').textContent = fmt(audio.currentTime);
+  $('fTotal').textContent = fmt(d);
+  if (!seeking) { $('fSeek').value = p * 1000; $('fSeek').style.setProperty('--p', p * 100 + '%'); }
+});
+$('fSeek').addEventListener('input', () => {
+  seeking = true;
+  $('fSeek').style.setProperty('--p', $('fSeek').value / 10 + '%');
+  if (audio.duration) $('fCur').textContent = fmt($('fSeek').value / 1000 * audio.duration);
+});
+$('fSeek').addEventListener('change', () => {
+  if (audio.duration) audio.currentTime = $('fSeek').value / 1000 * audio.duration;
+  seeking = false;
+});
+
+if ('mediaSession' in navigator) {
+  navigator.mediaSession.setActionHandler('play', () => audio.play());
+  navigator.mediaSession.setActionHandler('pause', () => audio.pause());
+  navigator.mediaSession.setActionHandler('nexttrack', next);
+  navigator.mediaSession.setActionHandler('previoustrack', prev);
+}
+
+showTrending();
+</script>
+</body>
+</html>
