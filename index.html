@@ -322,7 +322,7 @@
 <script>
 const BOT = 'otsecbot';                 // имя бота — для ссылок «поделиться»
 const APP = 'otsec';
-const JAMENDO_ID = '';                  // client_id с devportal.jamendo.com (пусто — Jamendo выключен)
+const JAMENDO_ID = 'a17f7580';          // client_id с devportal.jamendo.com (пусто — Jamendo выключен)
 const $ = id => document.getElementById(id);
 const audio = $('audio');
 
@@ -508,8 +508,10 @@ const streamUrl = t => t.audio || `${host || 'https://api.audius.co'}/v1/tracks/
 // ---------- Jamendo API ----------
 // id треков Jamendo храним с буквой j впереди, чтобы не путать с Audius
 const hasJamendo = !!JAMENDO_ID;
+// Jamendo присылает названия с HTML-кодами (&amp; и т. п.) — раскодируем
+const decodeHtml = s => { const d = document.createElement('textarea'); d.innerHTML = s || ''; return d.value; };
 const jSimplify = t => ({
-  id: 'j' + t.id, title: t.name, artist: t.artist_name,
+  id: 'j' + t.id, title: decodeHtml(t.name), artist: decodeHtml(t.artist_name),
   cover: t.image || t.album_image || '', duration: t.duration || 0, audio: t.audio,
 });
 async function jam(params) {
@@ -522,14 +524,23 @@ async function jam(params) {
 // единые функции для обоих каталогов
 async function chartOf(src, genre) {
   if (src === 'jamendo') {
+    // Jamendo иногда отвечает пустым списком — пробуем несколько вариантов запроса
     const tag = (GENRES.find(x => x[0] === genre) || GENRES[0])[2];
-    return jam(`limit=50&order=popularity_week${tag ? '&tags=' + encodeURIComponent(tag) : ''}`);
+    const t = tag ? encodeURIComponent(tag) : '';
+    const tries = tag
+      ? [`order=popularity_week&tags=${t}`, `order=popularity_week&fuzzytags=${t}`, `order=popularity_month&fuzzytags=${t}`, `order=popularity_total&fuzzytags=${t}`, `order=popularity_total&tags=${t}`]
+      : ['order=popularity_week', 'order=popularity_month', 'order=popularity_total'];
+    for (const q of tries) {
+      const res = await jam(`limit=50&${q}`);
+      if (res.length) return res;
+    }
+    return [];
   }
   return api(`/tracks/trending?limit=50${genre ? '&genre=' + encodeURIComponent(genre) : ''}`);
 }
 async function searchAll(q) {
-  const jobs = [api(`/tracks/search?query=${encodeURIComponent(q)}`)];
-  if (hasJamendo) jobs.push(jam(`limit=30&search=${encodeURIComponent(q)}`));
+  const jobs = [api(`/tracks/search?query=${encodeURIComponent(q)}&limit=30`)];
+  if (hasJamendo) jobs.push(jam(`limit=30&search=${encodeURIComponent(q)}`).then(r => r.length ? r : jam(`limit=30&namesearch=${encodeURIComponent(q)}`)));
   const res = await Promise.allSettled(jobs);
   const lists = res.filter(r => r.status === 'fulfilled').map(r => r.value);
   if (!lists.length) throw new Error('search');
@@ -641,8 +652,9 @@ async function showChart() {
     try { chartCache[key] = await chartOf(src, g); }
     catch (e) { if (view.src === src && view.genre === g) $('list').innerHTML = '<div class="msg"><b>Нет связи</b>Проверь интернет и открой снова</div>'; return; }
   }
-  if (view.tab !== 'chart' || view.genre !== g || view.src !== src || query()) return;
   const all = chartCache[key];
+  if (!all.length) delete chartCache[key];   // пустой ответ не запоминаем — в следующий раз спросим снова
+  if (view.tab !== 'chart' || view.genre !== g || view.src !== src || query()) return;
   $('heroSec').hidden = !all.length;
   renderHero(all.slice(0, 8));
   render(all.slice(8), 'В этом жанре пока пусто', 8);
