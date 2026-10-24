@@ -264,11 +264,12 @@
   <div class="seg" id="src" hidden>
     <button data-src="audius" class="active">Audius</button>
     <button data-src="jamendo">Jamendo</button>
+    <button data-src="ru">Русское</button>
   </div>
   <div class="chips" id="genres"></div>
 
   <section id="heroSec" hidden>
-    <div class="section-title"><h2>Топ недели</h2><span>листай →</span></div>
+    <div class="section-title"><h2 id="heroTitle">Топ недели</h2><span>листай →</span></div>
     <div class="hero" id="hero"></div>
   </section>
 
@@ -523,16 +524,20 @@ async function jam(params) {
 
 // единые функции для обоих каталогов
 async function chartOf(src, genre) {
-  if (src === 'jamendo') {
+  if (src === 'jamendo' || src === 'ru') {
     // Jamendo иногда отвечает пустым списком — пробуем несколько вариантов запроса
     const tag = (GENRES.find(x => x[0] === genre) || GENRES[0])[2];
     const t = tag ? encodeURIComponent(tag) : '';
-    const tries = tag
+    let tries = tag
       ? [`order=popularity_week&tags=${t}`, `order=popularity_week&fuzzytags=${t}`, `order=popularity_month&fuzzytags=${t}`, `order=popularity_total&fuzzytags=${t}`, `order=popularity_total&tags=${t}`]
       : ['order=popularity_week', 'order=popularity_month', 'order=popularity_total'];
-    for (const q of tries) {
-      const res = await jam(`limit=50&${q}`);
-      if (res.length) return res;
+    // «Русское» — песни на русском языке; по неделе их мало, поэтому сначала берём «за всё время»
+    if (src === 'ru') tries = [...tries.filter(q => q.includes('total')), ...tries.filter(q => !q.includes('total'))].map(q => 'lang=ru&' + q);
+    for (let round = 0; round < 2; round++) {
+      for (const q of tries) {
+        const res = await jam(`limit=${src === 'ru' ? 100 : 50}&${q}`);
+        if (res.length) return res;
+      }
     }
     return [];
   }
@@ -544,6 +549,8 @@ async function searchAll(q) {
   const res = await Promise.allSettled(jobs);
   const lists = res.filter(r => r.status === 'fulfilled').map(r => r.value);
   if (!lists.length) throw new Error('search');
+  // Audius не понимает кириллицу, поэтому на русский запрос сначала показываем Jamendo
+  if (/[а-яё]/i.test(q) && lists.length > 1) return [...lists[1], ...lists[0]];
   const out = [];  // перемешиваем результаты через один
   for (let i = 0; i < Math.max(...lists.map(l => l.length)); i++) lists.forEach(l => l[i] && out.push(l[i]));
   return out;
@@ -556,6 +563,7 @@ async function trackById(id) {
 
 // ---------- состояние экрана ----------
 let view = { tab: 'chart', genre: '', pl: null, src: 'audius' };
+try { const s = localStorage.getItem('otsec_src'); if (s && (JAMENDO_ID || s === 'audius')) view.src = s; } catch (e) {}
 let queue = [], index = -1, shuffle = false;
 let shown = [], heroItems = [];
 const chartCache = {};
@@ -585,6 +593,7 @@ $('src').addEventListener('click', e => {
   const b = e.target.closest('[data-src]');
   if (!b || b.dataset.src === view.src) return;
   view.src = b.dataset.src; haptic(); renderGenres(); showChart();
+  try { localStorage.setItem('otsec_src', view.src); } catch (e) {}
 });
 
 function renderHero(tracks) {
@@ -645,7 +654,8 @@ async function showChart() {
   setLayout({ genres: true, hero: true });
   const g = view.genre, src = view.src, key = src + ':' + g;
   const label = (GENRES.find(x => x[0] === g) || GENRES[0])[1];
-  $('heading').textContent = g ? label : 'Сейчас качает';
+  $('heading').textContent = src === 'ru' ? (g ? `Русское · ${label}` : 'Русское') : (g ? label : 'Сейчас качает');
+  $('heroTitle').textContent = src === 'ru' ? 'Топ' : 'Топ недели';
   renderGenres();
   if (!chartCache[key]) {
     renderHero([]); $('heroSec').hidden = true; skeleton();
